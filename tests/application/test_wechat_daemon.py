@@ -1130,8 +1130,8 @@ def test_single_instance_lock_uses_msvcrt_when_fcntl_unavailable(
             self.calls.append((mode, size))
 
     fake_msvcrt = _FakeMsvcrt()
-    monkeypatch.setattr(state_dir_lock_module.file_lock_module, "fcntl", None)
-    monkeypatch.setattr(state_dir_lock_module.file_lock_module, "msvcrt", fake_msvcrt)
+    monkeypatch.setattr(state_dir_lock_module.file_lock_module, "_FCNTL", None)
+    monkeypatch.setattr(state_dir_lock_module.file_lock_module, "_MSVCRT", fake_msvcrt)
 
     lock_path = tmp_path / ".wechat" / ".daemon.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1166,7 +1166,10 @@ def test_process_once_sends_typing_best_effort(tmp_path: Path) -> None:
         scripted_turns=[
             _ScriptedTurn(
                 events=(AppEvent(type=AppEventType.FINAL_ANSWER, payload={"content": "答复"}, meta={}),),
-                delay_sec=0.02,
+                # Windows ProactorEventLoop 的 timer 粒度约 15ms；
+                # 这里把 scripted turn 的 delay 拉高到 0.2s，保证 typing task 有机会至少跑一次，
+                # 不再依赖 macOS/Linux 上更细的 scheduling 粒度。
+                delay_sec=0.2,
             )
         ]
     )
